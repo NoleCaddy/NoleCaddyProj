@@ -4,8 +4,10 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.location.Criteria;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.View;
@@ -15,7 +17,6 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -33,29 +34,29 @@ import java.text.DecimalFormat;
  * Edited by Sam on 7/10/2015, Blake
  */
 public class MainTab extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener, LocationListener {
+        GoogleApiClient.OnConnectionFailedListener, android.location.LocationListener {
 
     int[] parArray = {2,3,3,3,3,3,3,2,4,3,3,2,3,3,2,2,2,2};
 
     protected static final LatLng[] holeLocations = new LatLng[]{
-        new LatLng(30.190003,-85.724264), //hole 1
-        new LatLng(30.189567,-85.724789), //hole 2
-        new LatLng(30.189336,-85.724953), //hole 3
-        new LatLng(30.188992,-85.725439), //hole 4
-        new LatLng(30.189200,-85.725322), //hole 5
-        new LatLng(30.189086,-85.725586), //hole 6
-        new LatLng(30.189483,-85.725283), //hole 7
-        new LatLng(30.189558,-85.724944), //hole 8
-        new LatLng(30.190283,-85.724247), //hole 9
-        new LatLng(30.190758,-85.723369), //hole 10
-        new LatLng(30.190142,-85.722667), //hole 11
-        new LatLng(30.190375,-85.721986), //hole 12
-        new LatLng(30.191125,-85.721831), //hole 13
-        new LatLng(30.191375,-85.722125), //hole 14
-        new LatLng(30.191053,-85.722194), //hole 15
-        new LatLng(30.191025,-85.722619), //hole 16
-        new LatLng(30.190789,-85.723086), //hole 17
-        new LatLng(30.190328,-85.723506)  //hole 18
+            new LatLng(30.190003,-85.724264), //hole 1
+            new LatLng(30.189567,-85.724789), //hole 2
+            new LatLng(30.189336,-85.724953), //hole 3
+            new LatLng(30.188992,-85.725439), //hole 4
+            new LatLng(30.189200,-85.725322), //hole 5
+            new LatLng(30.189086,-85.725586), //hole 6
+            new LatLng(30.189483,-85.725283), //hole 7
+            new LatLng(30.189558,-85.724944), //hole 8
+            new LatLng(30.190283,-85.724247), //hole 9
+            new LatLng(30.190758,-85.723369), //hole 10
+            new LatLng(30.190142,-85.722667), //hole 11
+            new LatLng(30.190375,-85.721986), //hole 12
+            new LatLng(30.191125,-85.721831), //hole 13
+            new LatLng(30.191375,-85.722125), //hole 14
+            new LatLng(30.191053,-85.722194), //hole 15
+            new LatLng(30.191025,-85.722619), //hole 16
+            new LatLng(30.190789,-85.723086), //hole 17
+            new LatLng(30.190328,-85.723506)  //hole 18
     };
 
     public static final String TAG = MainTab.class.getSimpleName();
@@ -68,6 +69,7 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
     public static String currentPar;
     SupportMapFragment mapFragment;
     LocationManager locationManager;
+    LocationListener myLocationListener;
     Location mCurrentLocation;
     Location hCurrentLocation;
     Criteria criteria;
@@ -76,7 +78,7 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
     double myCurrentLat;
     double myCurrentLng;
     double distanceToHole;
-    TextView strokeText;
+    TextView strokeText,distanceText,holeText;
 
 /*  // map overlay stuff
     LatLng mapSWCorner = new LatLng(30.190333,-85.724764);
@@ -89,14 +91,14 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-        TextView distanceText = (TextView) findViewById(R.id.distanceText);
-        TextView holeText = (TextView) findViewById(R.id.holeNumber);
+        distanceText = (TextView) findViewById(R.id.distanceText);
+        holeText = (TextView) findViewById(R.id.holeNumber);
         strokeText = (TextView) findViewById(R.id.strokecount);
         holeText.setText(String.valueOf(currentHole));
         strokeText.setText(String.valueOf(currentStroke));
 
-         mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                 .findFragmentById(R.id.map);
+        mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
 
         if (!isGooglePlayServicesAvailable()) {
             finish();
@@ -106,16 +108,16 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         criteria = new Criteria();
         bestProvider = locationManager.getBestProvider(criteria, true);
-        mCurrentLocation = locationManager.getLastKnownLocation(bestProvider);
-        if (mCurrentLocation != null) {
-            onLocationChanged(mCurrentLocation);
-        }
-        //locationManager.requestLocationUpdates(20000,0,null,null,null);
-        currentHoleLatLng = holeLocations[currentHole- 1];
 
-        myCurrentLat = mCurrentLocation.getLatitude();
-        myCurrentLng = mCurrentLocation.getLongitude();
-        currentLocation = new LatLng(myCurrentLat, myCurrentLng);
+        mCurrentLocation = locationManager.getLastKnownLocation(bestProvider);
+        myLocationListener = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+
+                currentHoleLatLng = holeLocations[currentHole- 1];
+                myCurrentLat = mCurrentLocation.getLatitude();
+                myCurrentLng = mCurrentLocation.getLongitude();
+                currentLocation = new LatLng(myCurrentLat, myCurrentLng);
 
 
     /*   // **** works; no time to make a good graphic so taking out for now
@@ -129,39 +131,67 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
                 .transparency(0.8f)); */
 
 
-        hCurrentLocation = new Location("");
-        hCurrentLocation.setLatitude(currentHoleLatLng.latitude);
-        hCurrentLocation.setLongitude(currentHoleLatLng.longitude);
+                hCurrentLocation = new Location("");
+                hCurrentLocation.setLatitude(currentHoleLatLng.latitude);
+                hCurrentLocation.setLongitude(currentHoleLatLng.longitude);
 
-        CameraPosition cameraPosition = new CameraPosition.Builder()
-                .target(currentHoleLatLng)      // Sets the center of the map to Mountain View
-                .zoom(18)                   // Sets the zoom
-                .bearing(mCurrentLocation.bearingTo(hCurrentLocation))                // Sets the orientation of the camera to east
-                .tilt(65.0f)                   // Sets the tilt of the camera to 30 degrees
-                .build();                   // Creates a CameraPosition from the builder
+                CameraPosition cameraPosition = new CameraPosition.Builder()
+                        .target(currentHoleLatLng)      // Sets the center of the map to Mountain View
+                        .zoom(18)                   // Sets the zoom
+                        .bearing(mCurrentLocation.bearingTo(hCurrentLocation))                // Sets the orientation of the camera to east
+                        .tilt(65.0f)                   // Sets the tilt of the camera to 30 degrees
+                        .build();                   // Creates a CameraPosition from the builder
 
-        googleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+                googleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
 
-        googleMap.addMarker(new MarkerOptions()
-                .position(currentHoleLatLng)
-                .title("Hole " + currentHole)
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.basketmarker)));
+                googleMap.addMarker(new MarkerOptions()
+                        .position(currentHoleLatLng)
+                        .title("Hole " + currentHole)
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.basketmarker)));
 
-        googleMap
-                .addPolyline((new PolylineOptions())
-                        .add(currentLocation, currentHoleLatLng).width(5).color(0xFF7A2339)
-                        .geodesic(true));
+                googleMap
+                        .addPolyline((new PolylineOptions())
+                                .add(currentLocation, currentHoleLatLng).width(5).color(0xFF7A2339)
+                                .geodesic(true));
 
-        distanceToHole = CalculationByDistance(currentLocation, currentHoleLatLng);
+                distanceToHole = CalculationByDistance(currentLocation, currentHoleLatLng);
 
-        distanceText.setText(String.valueOf(distanceToHole));
+                distanceText.setText(String.valueOf(distanceToHole));
+
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+
+            }
+
+            @Override
+            public void onProviderEnabled(String provider) {
+
+            }
+
+            @Override
+            public void onProviderDisabled(String provider) {
+
+            }
+        };
+
+
+        if (mCurrentLocation != null) {
+            myLocationListener.onLocationChanged(mCurrentLocation);
+        } else {
+            Intent intent =  new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivity(intent);
+        }
+
+
+        locationManager.requestLocationUpdates(bestProvider,20000,1,myLocationListener);
 
     }//end onCreate
 
     @Override
     protected void onResume() {
         super.onResume();
-
         currentPar = checkPar(currentHole);
     }
 
@@ -191,12 +221,11 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
     }
 
     public void finishHole(View view) {
-
         Intent intent = new Intent(this,ScoreTab.class);
         startActivity(intent);
     }
 
-//***** taken from http://stackoverflow.com/questions/14394366/find-distance-between-two-points-on-map-using-google-map-api-v2 and modified
+    //***** taken from http://stackoverflow.com/questions/14394366/find-distance-between-two-points-on-map-using-google-map-api-v2 and modified
     public double CalculationByDistance(LatLng StartP, LatLng EndP) {
         int Radius = 6371;// radius of earth in Km
         double lat1 = StartP.latitude;
@@ -222,7 +251,7 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
         return Math.floor(((Radius * c) * 3280.84) * 100) / 100;
     }
 
-   @Override
+    @Override
     public void onMapReady(GoogleMap googleMap) {
         // original code snippets from google maps api reference
         //https://developers.google.com/maps/documentation/android/views#target_location
@@ -234,6 +263,7 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
     @Override
     public void onConnected(Bundle bundle) {
         Log.i(TAG, "Location services connected.");
+    //locationManager.requestLocationUpdates(bestProvider,20000,1,null);
     }
 
     @Override
@@ -267,6 +297,21 @@ public class MainTab extends FragmentActivity implements OnMapReadyCallback, Goo
         googleMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
         googleMap.animateCamera(CameraUpdateFactory.zoomTo(15));
         //locationTv.setText("Latitude:" + latitude + ", Longitude:" + longitude);
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
     }
 
     private boolean isGooglePlayServicesAvailable() {
